@@ -73,6 +73,8 @@ class Traces:
         partition_name = None
         process_name = None
         content = None
+
+        num = 0
         for line in all_lines:
             # Escape the illegal characters
             line = line.replace("\00", "")
@@ -89,6 +91,7 @@ class Traces:
                     # Generate the partition_name with pid and time
                     partition_name = "%s_%s" % (start_pid, start_time.replace(" ", "-"))
                     content = line
+                    num += 1
                     continue
 
             if partition_name:
@@ -109,6 +112,11 @@ class Traces:
                         process_name = None
 
         f.close()
+
+        if num > 0:
+            print '* Totally %d partitions are split out into "%s" ' % (num, os.path.abspath(self.partition_dir))
+        else:
+            print '* No partition is split out.'
 
     def write_partition(self, partition_name, content):
         partition_path = os.path.join(self.partition_dir, partition_name)
