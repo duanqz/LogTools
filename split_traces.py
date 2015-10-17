@@ -18,6 +18,7 @@
 import os
 import sys
 import re
+import argparse
 import string
 
 __author__ = 'duanqizhi'
@@ -29,25 +30,29 @@ class Options:
 
     @staticmethod
     def parse_arguments():
-        try:
-            import argparse
-            parser = argparse.ArgumentParser(description='Split traces by each pid.')
-            parser.add_argument('-f', '--file', dest='file', help='text file containing android traces log')
-            parser.add_argument('-p', '--pid', dest='pid', help='filter out trace partitions of the pid', type=int)
+        parser = argparse.ArgumentParser(description='Split traces by each pid.')
+        parser.add_argument('-f', '--file', dest='file', help='text file containing android traces log')
+        parser.add_argument('-p', '--pid', dest='pid', help='filter out trace partitions of the pid', type=int)
 
-            options = parser.parse_args()
-            if options.file is None:
-                parser.print_help()
-                sys.exit(1)
-
-            return options
-        except ImportError:
+        args = parser.parse_args()
+        if args.file is None:
+            parser.print_help()
             sys.exit(1)
+
+        return args
 
 
 class Traces:
+    """ Model of text traces file
+    """
+
+    # Regex to match text like: "----- pid 880 at 2015-10-14 13:47:53 -----", group out pid and time
     RE_START = re.compile("----- pid (?P<pid>\d+) at (?P<time>.*?) -----")
+
+    # Regex to match text like: "Cmd line: system_server", group out process name
     RE_PNAME = re.compile("Cmd line: (?P<pname>.*)")
+
+    # Regex to match text like: "----- end 880 -----", group out pid
     RE_END = re.compile("----- end (?P<pid>\d+) -----")
 
     def __init__(self, in_file):
@@ -55,16 +60,22 @@ class Traces:
 
         self.partition_dir = os.path.join(os.path.dirname(in_file), "partitions")
         if not os.path.exists(self.partition_dir):
-            os.mkdir(self.partition_dir)
+            os.makedirs(self.partition_dir)
 
     def split(self, pid=None):
+        """ Split the traces.txt to partitions.
+            :param pid: If pid is presented, only keep partitions of the pid
+        """
 
         f = open(self.in_file, "r")
         all_lines = f.readlines()
 
         partition_name = None
+        process_name = None
         content = None
         for line in all_lines:
+            # Escape the illegal characters
+            line = line.replace("\00", "")
 
             if partition_name is None:
                 start = Traces.RE_START.match(line)
@@ -75,25 +86,27 @@ class Traces:
                         continue
 
                     start_time = start.group("time")
+                    # Generate the partition_name with pid and time
                     partition_name = "%s_%s" % (start_pid, start_time.replace(" ", "-"))
-                    print "Catch %s" % partition_name
                     content = line
                     continue
 
             if partition_name:
                 content += line
+                if process_name is None:
+                    process_match = Traces.RE_PNAME.match(line)
+                    if process_match is not None:
+                        process_name = os.path.basename(process_match.group("pname"))
+                        # Insert the process_name to partition_name
+                        partition_name = "%s_%s" % (process_name, partition_name)
+                        print "%s" % partition_name
+                else:
+                    end = Traces.RE_END.match(line)
+                    if end is not None:
+                        self.write_partition(partition_name, content)
 
-                process_name = Traces.RE_PNAME.match(line)
-                if process_name is not None:
-                    short_pname = os.path.basename(process_name.group("pname"))
-                    partition_name = "%s_%s" % (short_pname, partition_name)
-                    continue
-
-            if partition_name:
-                end = Traces.RE_END.match(line)
-                if end is not None:
-                    self.write_partition(partition_name, content)
-                    partition_name = None
+                        partition_name = None
+                        process_name = None
 
         f.close()
 
@@ -108,5 +121,6 @@ class Traces:
 
 
 if __name__ == '__main__':
-    options = Options.parse_arguments()
-    Traces(options.file).split(options.pid)
+    args = Options.parse_arguments()
+
+    Traces(args.file).split(args.pid)
