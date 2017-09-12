@@ -83,7 +83,7 @@ class Traces:
                 start = Traces.RE_START.match(line)
                 if start is not None:
                     start_pid = start.group("pid")
-                    if pid is not None and string.atoi(start_pid) != pid:
+                    if pid is not None and int(start_pid) != pid:
                         #print "ignore"
                         continue
 
