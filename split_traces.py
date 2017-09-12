@@ -102,7 +102,7 @@ class Traces:
                         process_name = os.path.basename(process_match.group("pname"))
                         # Insert the process_name to partition_name
                         partition_name = "%s_%s" % (process_name, partition_name)
-                        print "%s" % partition_name
+                        print("%s" % partition_name)
                 else:
                     end = Traces.RE_END.match(line)
                     if end is not None:
@@ -114,9 +114,9 @@ class Traces:
         f.close()
 
         if num > 0:
-            print '* Totally %d partitions are split out into "%s" ' % (num, os.path.abspath(self.partition_dir))
+            print('* Totally %d partitions are split out into "%s" ' % (num, os.path.abspath(self.partition_dir)))
         else:
-            print '* No partition is split out.'
+            print('* No partition is split out.')
 
     def write_partition(self, partition_name, content):
         partition_path = os.path.join(self.partition_dir, partition_name)
